@@ -30,5 +30,5 @@
   "prevent_duplicates": false,
   "target_open_retries": 1,
   "target_open_timeout_seconds": 15,
-  "schedule": { "enabled": true, "time": "09:30" }
+  "schedule": { "enabled": true, "time": "08:00" }
 }

@@ -72,7 +72,7 @@ docker run -d --name douyin-auto-fire --restart unless-stopped \
 
 **发送规则**（这是本项目的核心逻辑）：
 
-- **每天第一次运行**（自动 09:30 或你手动点「立即执行」）→ 每个好友收到一条**晨报**
+- **每天第一次运行**（自动 08:00 或你手动点「立即执行」）→ 每个好友收到一条**晨报**
 - **当天之后的运行** → 只**转发热门视频**（「立即执行」会自动判断，也可直接点「只转发视频」）
 - 底部还有「强制补发晨报」：忽略"今天已发过"，再发一遍晨报（补发/改完城市想立刻重发时用）
 
@@ -114,7 +114,7 @@ docker run -d --name douyin-auto-fire --restart unless-stopped \
   },
   "send_interval_seconds": { "min": 3, "max": 8 },
   "prevent_duplicates": false,   // true=同一天同一好友只发一次（失败后当天不会重试，谨慎开）
-  "schedule": { "enabled": true, "time": "09:30" }   // 容器内定时，服务器本地时区（TZ）
+  "schedule": { "enabled": true, "time": "08:00" }   // 容器内定时，服务器本地时区（TZ）
 }
 ```
 

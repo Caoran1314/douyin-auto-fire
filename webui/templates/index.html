@@ -207,7 +207,7 @@
   <section class="panel" id="p-report">
     <div class="card">
       <h3>🌅 每天第一条：定制晨报</h3>
-      <p class="sub">当天<b>第一次</b>运行（自动 09:30 或你手动点）会给每个好友发一条晨报；当天之后的运行只转发视频。</p>
+      <p class="sub">当天<b>第一次</b>运行（自动 08:00 或你手动点）会给每个好友发一条晨报；当天之后的运行只转发视频。</p>
       <div class="row">
         <label class="switch"><input type="checkbox" id="r-on"><span class="track"></span> 启用每日晨报</label>
         <span class="small dim">关闭后：每天第一条也直接转发视频</span>
@@ -310,7 +310,7 @@
         <div>
           <div class="row">
             <label class="switch"><input type="checkbox" id="sched-on"><span class="track"></span> 每天定时自动发送</label>
-            <input type="time" id="sched-time" value="09:30">
+            <input type="time" id="sched-time" value="08:00">
           </div>
           <div class="hint" id="next-run">下次运行：—</div>
         </div>
@@ -721,7 +721,7 @@ function syncInputs(){
   if (document.activeElement.id !== 'imax') $('imax').value = c.send_interval_seconds?.max ?? 8;
   $('dedup').checked = !!c.prevent_duplicates;
   $('sched-on').checked = !!(c.schedule && c.schedule.enabled);
-  if (document.activeElement.id !== 'sched-time') $('sched-time').value = (c.schedule && c.schedule.time) || '09:30';
+  if (document.activeElement.id !== 'sched-time') $('sched-time').value = (c.schedule && c.schedule.time) || '08:00';
 }
 const _render = render;
 render = function(){ _render(); syncInputs(); };

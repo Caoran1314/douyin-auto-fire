@@ -91,7 +91,7 @@ def schedule_cfg() -> dict:
     sch = cfg.get("schedule") or {}
     return {
         "enabled": bool(sch.get("enabled", False)),
-        "time": str(sch.get("time", "09:30")),
+        "time": str(sch.get("time", "08:00")),
     }
 
 
@@ -317,7 +317,7 @@ async def api_save_config(payload: dict, request: Request):
             "target_open_timeout_seconds": 15,
             "schedule": {
                 "enabled": bool(payload.get("schedule_enabled", True)),
-                "time": str(payload.get("schedule_time", "09:30")),
+                "time": str(payload.get("schedule_time", "08:00")),
             },
         }
     )
