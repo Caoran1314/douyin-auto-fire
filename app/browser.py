@@ -68,6 +68,8 @@ _SAFE_ELEMENT_KEYS = ("tag", "type", "placeholder", "role", "aria_label")
 class BrowserSession:
     page: Page
     context: BrowserContext
+    state_path: Path | None = None
+    authenticated: bool = False
 
 
 @asynccontextmanager
@@ -75,6 +77,7 @@ async def open_douyin(settings: Settings) -> AsyncIterator[BrowserSession]:
     playwright: Playwright | None = None
     browser: Browser | None = None
     context: BrowserContext | None = None
+    state_path: Path | None = None
     try:
         playwright = await async_playwright().start()
         launch_args = {"headless": settings.headless}
@@ -82,13 +85,39 @@ async def open_douyin(settings: Settings) -> AsyncIterator[BrowserSession]:
             launch_args["executable_path"] = settings.browser_path
         browser = await playwright.chromium.launch(**launch_args)
 
+        # 持久化浏览器档案：把 cookie + localStorage 存到本地，下次复用同一"设备"。
+        # 实测每次都用全新浏览器最容易被抖音风控踢掉会话（登录态几分钟就失效）。
+        saved_state: dict | None = None
+        if not settings.storage_state and settings.cookie:
+            cookie_file: Path | None = None
+            try:
+                cookie_file = Path(settings.cookie).expanduser()
+                is_file = cookie_file.is_file()
+            except (OSError, ValueError):
+                is_file = False
+            if is_file and cookie_file is not None:
+                state_path = cookie_file.parent / "storage_state.json"
+                if state_path.is_file():
+                    try:
+                        loaded = json.loads(state_path.read_text(encoding="utf-8"))
+                        if isinstance(loaded, dict):
+                            saved_state = loaded
+                            LOGGER.info("复用浏览器档案（档案内 cookie %d 个）",
+                                        len(loaded.get("cookies") or []))
+                    except (OSError, json.JSONDecodeError):
+                        LOGGER.warning("浏览器档案不可用，本次按全新设备运行")
+
         context_args = {"viewport": {"width": 1440, "height": 1000}, "locale": "zh-CN"}
         if settings.storage_state:
             state = parse_auth_json(settings.storage_state, "DOUYIN_STORAGE_STATE")
             if not isinstance(state, dict):
                 raise ConfigError("DOUYIN_STORAGE_STATE 必须是 JSON 对象")
             context_args["storage_state"] = state
+        elif saved_state:
+            context_args["storage_state"] = saved_state
         context = await browser.new_context(**context_args)
+        # cookie 文件始终覆盖档案里的旧登录态（档案只补 localStorage / 设备指纹，
+        # 避免过期 sessionid 盖掉刚导入的新 cookie）
         if not settings.storage_state and settings.cookie:
             cookies = parse_auth_json(settings.cookie, "DOUYIN_COOKIE")
             if not isinstance(cookies, list):
@@ -98,7 +127,19 @@ async def open_douyin(settings: Settings) -> AsyncIterator[BrowserSession]:
         page = await context.new_page()
         if settings.trace:
             await context.tracing.start(screenshots=True, snapshots=True, sources=False)
-        yield BrowserSession(page=page, context=context)
+        session = BrowserSession(page=page, context=context, state_path=state_path)
+        try:
+            yield session
+        finally:
+            # 只在本次登录确实有效时回存档案，避免把"已登出"状态写进去
+            if session.state_path is not None and session.authenticated:
+                try:
+                    session.state_path.parent.mkdir(parents=True, exist_ok=True)
+                    await context.storage_state(path=str(session.state_path))
+                    session.state_path.chmod(0o600)
+                    LOGGER.info("已保存浏览器档案 -> %s", session.state_path)
+                except Exception:  # noqa: BLE001
+                    LOGGER.warning("保存浏览器档案失败", exc_info=True)
     finally:
         if context:
             await context.close()

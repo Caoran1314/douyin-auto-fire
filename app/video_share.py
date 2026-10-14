@@ -51,7 +51,7 @@ _FETCH_HOT_JS = """() => {
 async def fetch_hot_videos(page: Page, limit: int = 25) -> list[dict[str, str]]:
     """取抖音热点榜的视频列表（标题 + 链接）。"""
     await page.goto(HOT_URL, wait_until="domcontentloaded", timeout=60_000)
-    await page.wait_for_timeout(6_000)
+    await page.wait_for_timeout(4_000)
     items = await page.evaluate(_FETCH_HOT_JS) or []
     cleaned: list[dict[str, str]] = []
     for it in items:
@@ -163,7 +163,7 @@ async def share_video_to_friend(
     mark_only=True 时只走到「在浮层里定位到该好友那一行」为止（dry-run 用），不点分享。
     """
     await page.goto(video_url, wait_until="domcontentloaded", timeout=60_000)
-    await page.wait_for_timeout(4_000)
+    await page.wait_for_timeout(2_500)
     await open_share_panel(page, timeout_ms=timeout_ms)
 
     panel = page.locator(f'[{PANEL_ATTR}="1"]')
@@ -172,7 +172,7 @@ async def share_video_to_friend(
     try:
         await search.click(timeout=5_000)
         await search.fill(friend)
-        await page.wait_for_timeout(2_500)
+        await page.wait_for_timeout(1_800)
     except Exception as exc:  # noqa: BLE001
         LOGGER.warning("浮层搜索框操作失败，改为在列表中直接查找: %s", exc)
 
@@ -196,7 +196,7 @@ async def share_video_to_friend(
                   if (sc) sc.scrollTop = sc.scrollHeight; else if (p) p.scrollTop = p.scrollHeight;
                 }""".replace("__A__", PANEL_ATTR)
             )
-            await page.wait_for_timeout(1_200)
+            await page.wait_for_timeout(800)
     if state != "ok":
         raise ShareError(f"分享浮层里找不到好友「{friend}」：{state}")
 
@@ -206,7 +206,7 @@ async def share_video_to_friend(
 
     # 3) 点行内「分享」按钮
     await page.locator(f'[{BTN_ATTR}="1"]').first.click(timeout=8_000)
-    await page.wait_for_timeout(2_500)
+    await page.wait_for_timeout(2_000)
 
     # 4) 校验结果：toast / 按钮变灰
     toast = await page.evaluate(_TOAST_JS)

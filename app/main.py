@@ -98,6 +98,9 @@ async def run(dry_run: bool = False, env_file: str | None = None, mode: str = MO
             trace_saved = False
             try:
                 await open_private_messages(page)
+                # 登录确实有效 → 结束时把浏览器档案（cookie+localStorage）回存，
+                # 下次复用同一"设备"，降低被风控踢掉会话的概率
+                session.authenticated = True
             except Exception as exc:
                 LOGGER.exception("打开抖音私信页面失败")
                 screenshot = await _screenshot(page, settings.artifacts_dir, "login")
@@ -151,7 +154,7 @@ async def run(dry_run: bool = False, env_file: str | None = None, mode: str = MO
                                 # 个别视频的分享浮层打不开：换下一条视频重试（最多 3 次），
                                 # 每次失败都先把页面恢复回私信页，避免把后续好友全带崩
                                 last_exc: Exception | None = None
-                                for attempt in range(1, 4):
+                                for attempt in range(1, 3):
                                     video = await pool.next(page, preferred=resolved.url if attempt == 1 else None)
                                     cat = video.get("category") or "热点榜"
                                     try:
