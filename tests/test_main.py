@@ -66,7 +66,8 @@ async def test_authentication_failure_stops_remaining_targets_and_notifies(monke
     monkeypatch.setattr(main_module, "_configure_logging", lambda _path, _aliases=None: None)
 
     with pytest.raises(AuthenticationError, match="登录失效"):
-        await main_module.run()
+        # 显式走 config 模式：这些用例验证的是「按 config.json 里的 messages 发送」的老路径
+        await main_module.run(mode="config")
 
     chat.open_target.assert_awaited_once_with("好友A", retries=1)
     results = notify.await_args.args[3]
@@ -94,7 +95,7 @@ async def test_browser_start_failure_still_notifies(monkeypatch, tmp_path) -> No
     monkeypatch.setattr(main_module, "_configure_logging", lambda _path, _aliases=None: None)
 
     with pytest.raises(RuntimeError, match="浏览器启动失败"):
-        await main_module.run()
+        await main_module.run(mode="config")
 
     results = notify.await_args.args[3]
     assert [(result.target, result.status) for result in results] == [("运行检查", "failed")]
@@ -145,6 +146,6 @@ async def test_waits_between_consecutive_messages_for_same_friend(monkeypatch, t
     monkeypatch.setattr(main_module, "_notify_dingtalk", AsyncMock())
     monkeypatch.setattr(main_module, "_configure_logging", lambda _path, _aliases=None: None)
 
-    assert await main_module.run() == 0
+    assert await main_module.run(mode="config") == 0
     assert send_message.await_count == 2
     assert sleeps == [0.5]
