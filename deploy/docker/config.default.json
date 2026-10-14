@@ -1,0 +1,23 @@
+{
+  "task_id": "daily-streak",
+  "timezone": "Asia/Shanghai",
+  "targets": [
+    {
+      "name": "待配置好友昵称(PLACEHOLDER)",
+      "messages": [
+        { "type": "random", "choices": [
+          { "type": "text", "content": "续火花 ✨" },
+          { "type": "text", "content": "今天也要开心 😊" },
+          { "type": "text", "content": "来续个火花 🔥" }
+        ] }
+      ]
+    }
+  ],
+  "message_pool": ["续火花 ✨", "今天也要开心 😊", "来续个火花 🔥"],
+  "send_interval_seconds": { "min": 3, "max": 8 },
+  "continue_on_error": true,
+  "prevent_duplicates": false,
+  "target_open_retries": 1,
+  "target_open_timeout_seconds": 15,
+  "schedule": { "enabled": true, "time": "09:30" }
+}

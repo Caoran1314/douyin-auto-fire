@@ -119,7 +119,11 @@ def _parse_target(raw: Any, index: int, config_dir: Path) -> Target:
     messages_raw = raw.get("messages")
     if not isinstance(messages_raw, list) or not messages_raw:
         raise ConfigError(f"{label}.messages 必须是非空数组")
-    return Target(name=name, messages=tuple(_parse_message(item, f"{label}.messages[{i}]", config_dir) for i, item in enumerate(messages_raw)))
+    return Target(
+        name=name,
+        messages=tuple(_parse_message(item, f"{label}.messages[{i}]", config_dir) for i, item in enumerate(messages_raw)),
+        city=_optional_string(raw.get("city")),
+    )
 
 
 def _parse_message(raw: Any, label: str, config_dir: Path) -> Message:
@@ -142,6 +146,9 @@ def _parse_message(raw: Any, label: str, config_dir: Path) -> Message:
         return Message(type="image", path=path.resolve())
     if message_type in {"douyin_sticker", "sticker"}:
         return Message(type="douyin_sticker", sticker=_non_empty_string(raw.get("sticker", value), f"{label}.value"))
+    if message_type in {"video_share", "hot_video", "video"}:
+        # url 为空 => 运行时从抖音热点榜自动挑一个视频转发
+        return Message(type="video_share", url=_optional_string(raw.get("url", value)))
     if message_type == "random":
         choices = raw.get("choices")
         if not isinstance(choices, list) or not choices:

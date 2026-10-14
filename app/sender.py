@@ -138,8 +138,18 @@ async def send_text(chat: DouyinChat, content: str) -> None:
     try:
         await page.wait_for_function(
             """([txt]) => {
+                // 抖音编辑器会插入零宽字符、并把连续空行折叠，
+                // 所以先规范化再比对：先试整段包含，不行就「首段+尾段」双端匹配。
+                const norm = s => (s || '').replace(/[\\u200b\\u200c\\u200d\\ufeff]/g, '')
+                                          .replace(/[ \\t]+/g, ' ').replace(/\\s+/g, ' ').trim();
+                const want = norm(txt);
+                if (!want) return true;
                 const es = [...document.querySelectorAll('[class*=messageEditor] [contenteditable=true], .messageEditorinputArea')];
-                return es.some(e => (e.innerText || '').includes(txt));
+                return es.some(e => {
+                    const got = norm(e.innerText);
+                    return got.includes(want)
+                        || (want.length > 24 && got.includes(want.slice(0, 12)) && got.includes(want.slice(-12)));
+                });
             }""",
             arg=[content],
             timeout=5_000,

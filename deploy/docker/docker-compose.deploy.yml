@@ -1,0 +1,19 @@
+# NAS 部署用 compose（镜像已单独 build 好，数据目录按用户约定放 /vol1/1000/docker/<项目>/）
+# 用法：sudo docker compose -f docker-compose.yml up -d
+services:
+  douyin-auto-fire:
+    image: douyin-auto-fire:local
+    container_name: douyin-auto-fire
+    restart: unless-stopped
+    ports:
+      - "8600:8600"
+    environment:
+      WEB_PASSWORD: ${WEB_PASSWORD:?请在 .env 里设置 WEB_PASSWORD}
+      TZ: Asia/Shanghai
+      DATA_DIR: /data
+    volumes:
+      - /vol1/1000/docker/douyin-auto-fire/data:/data
+    shm_size: "1gb"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

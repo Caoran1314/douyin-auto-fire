@@ -1,0 +1,22 @@
+# 构建镜像时排除的东西（镜像里只要代码）
+.git
+.github
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+tests
+docs
+
+# 运行时 / 隐私 / 本机产物
+data
+runtime-data
+deploy-bundle
+secrets
+artifacts
+tools/_local
+.env
+.env.*
+!.env.example
+config.json
+storage-state.json

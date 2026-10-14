@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 
-MessageType = Literal["text", "image", "douyin_sticker", "random"]
+MessageType = Literal["text", "image", "douyin_sticker", "random", "video_share"]
 
 
 @dataclass(frozen=True)
@@ -15,12 +15,14 @@ class Message:
     path: Path | None = None
     sticker: str | None = None
     choices: tuple["Message", ...] = ()
+    url: str | None = None  # video_share：指定视频链接；为空表示从热门榜自动挑
 
 
 @dataclass(frozen=True)
 class Target:
     name: str
     messages: tuple[Message, ...]
+    city: str | None = None  # 晨报天气用的城市（如「武汉」）；为空则该好友晨报不带天气
 
 
 @dataclass(frozen=True)

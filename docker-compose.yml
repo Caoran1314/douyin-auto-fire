@@ -1,0 +1,28 @@
+# 抖音自动续火花 —— Docker 部署（推荐）
+#
+# 用法：
+#   1) 新建 .env，写入 WEB_PASSWORD=你的密码
+#   2) docker compose up -d --build
+#   3) 浏览器打开 http://<服务器IP>:8600
+services:
+  douyin-auto-fire:
+    build:
+      context: .
+    image: douyin-auto-fire:local
+    container_name: douyin-auto-fire
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8600}:8600"
+    environment:
+      # 配置台访问密码：务必设置，否则任何人都能打开配置台
+      WEB_PASSWORD: ${WEB_PASSWORD:-}
+      TZ: ${TZ:-Asia/Shanghai}
+      DATA_DIR: /data
+    volumes:
+      # 配置(config.json) / Cookie(secrets/cookie.json) / 日志截图(artifacts) 都在这
+      - ./data:/data
+    # Chromium 需要更大的 /dev/shm，否则容易崩
+    shm_size: "1gb"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

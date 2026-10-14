@@ -7,9 +7,11 @@ on:
         description: Only verify login and friends without sending
         type: boolean
         default: false
-  schedule:
-    - cron: "30 3 * * *"
-      timezone: "Asia/Shanghai"
+  # 本仓库推荐用 Docker 部署（自带配置网页），所以默认不启用定时，避免未配置 Secrets 时每天失败。
+  # 想用 GitHub Actions 方式：取消下面两行注释，并按 docs/github-actions.md 配置 Secrets。
+  # schedule:
+  #   - cron: "30 3 * * *"
+  #     timezone: "Asia/Shanghai"
 
 concurrency:
   group: douyin-daily-sender

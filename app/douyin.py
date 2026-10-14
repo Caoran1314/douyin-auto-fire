@@ -12,6 +12,11 @@ class PageOperationError(RuntimeError):
     pass
 
 
+def _norm_text(s: str) -> str:
+    """去空白与零宽字符后小写化，用于昵称匹配（抖音名字里常有空格/emoji）。"""
+    return re.sub(r"[\u200b\u200c\u200d\ufeff\s]+", "", str(s or "")).lower()
+
+
 RETRY_DELAY_MS = 3_000
 
 
@@ -36,9 +41,57 @@ class DouyinChat:
                 last_error = exc
                 if attempt < retries:
                     await self.page.wait_for_timeout(RETRY_DELAY_MS)
+        # 搜索框打不开的（名字带空格/emoji/特殊字符，实测「沪上陇香 庆阳饸饹面」「Sean loves Peppa」）
+        # → 直接在左侧会话列表里按名字找到那条点开
+        try:
+            await self._open_target_from_list(name)
+            return
+        except Exception:  # noqa: BLE001
+            pass
         if last_error is not None:
             raise last_error
         raise PageOperationError("打开聊天失败")
+
+    async def _open_target_from_list(self, name: str) -> None:
+        """在左侧私信列表里按名字找到会话并点开（搜索兜底方案）。"""
+        page = self.page
+        try:
+            search = await first_visible(page, SEARCH_INPUTS, 5_000)
+            await search.fill("")
+            await page.wait_for_timeout(800)
+        except Exception:  # noqa: BLE001
+            pass
+
+        want = _norm_text(name)
+        for _ in range(14):
+            idx = await page.evaluate(
+                """([w]) => {
+                    const norm = s => (s || '').replace(/[\\u200b\\u200c\\u200d\\ufeff\\s]+/g, '').toLowerCase();
+                    const items = document.querySelectorAll('[class*="ConversationItemwrapper"]');
+                    for (let i = 0; i < items.length; i++) {
+                      const t = items[i].querySelector('[class*="ConversationItemtitle"]');
+                      const nm = norm(t ? t.innerText : '');
+                      if (nm && (nm === w || nm.includes(w) || w.includes(nm))) return i;
+                    }
+                    return -1;
+                }""",
+                [want],
+            )
+            if isinstance(idx, int) and idx >= 0:
+                await page.locator('[class*="ConversationItemwrapper"]').nth(idx).click(force=True)
+                await self._confirm_opened(name)
+                return
+            await page.evaluate(
+                """() => {
+                    const item = document.querySelector('[class*="ConversationItemwrapper"]');
+                    if (!item) return;
+                    let node = item.parentElement, box = null;
+                    while (node) { if (node.scrollHeight > node.clientHeight + 50) { box = node; break; } node = node.parentElement; }
+                    if (box) box.scrollTop = Math.min(box.scrollHeight, box.scrollTop + box.clientHeight * 0.9);
+                }"""
+            )
+            await page.wait_for_timeout(900)
+        raise PageOperationError("会话列表里也找不到目标好友")
 
     async def _open_target_once(self, name: str) -> None:
         search = await first_visible(self.page, SEARCH_INPUTS, self.timeout_ms)

@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🔥 抖音续火花 · 控制台</title>
+<style>
+  :root{
+    --bg:#0f1117; --bg2:#141722; --card:#191d2a; --card2:#202536; --line:#2a3044;
+    --fg:#e9ebf2; --dim:#8e95ad; --dim2:#616b85; --pink:#fe2c55; --pink2:#ff5b7a;
+    --green:#31d47f; --amber:#f7b955; --blue:#5b8cff; --purple:#a06bff;
+    --r:14px; --shadow:0 8px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);
+    font:14px/1.6 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  a{color:var(--blue)}
+  /* ---------- 顶栏 ---------- */
+  .top{position:sticky;top:0;z-index:20;background:rgba(15,17,23,.92);backdrop-filter:blur(12px);
+       border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15.5px;letter-spacing:.2px}
+  .brand .dot{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--pink),var(--purple));font-size:14px}
+  .pills{display:flex;gap:7px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 11px;border-radius:999px;
+        background:var(--card2);border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+  .pill b{color:var(--fg);font-weight:600}
+  .pill.ok{color:var(--green);border-color:#1f5138;background:#132b20}
+  .pill.bad{color:var(--pink2);border-color:#5a2130;background:#2a151c}
+  .pill.run{color:var(--blue);border-color:#274070;background:#141f36}
+  .spacer{flex:1}
+  /* ---------- 布局 ---------- */
+  .wrap{max-width:1120px;margin:0 auto;padding:20px 18px 120px}
+  .tabs{display:flex;gap:6px;margin:2px 0 18px;flex-wrap:wrap}
+  .tab{padding:8px 15px;border-radius:10px;background:transparent;border:1px solid transparent;color:var(--dim);
+       cursor:pointer;font:inherit;font-weight:500;transition:.15s}
+  .tab:hover{color:var(--fg);background:var(--card)}
+  .tab.on{background:var(--card);border-color:var(--line);color:var(--fg);box-shadow:var(--shadow)}
+  .panel{display:none;animation:fade .18s ease}
+  .panel.on{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin-bottom:14px}
+  .card h3{margin:0 0 4px;font-size:14.5px;display:flex;align-items:center;gap:8px}
+  .card .sub{color:var(--dim);font-size:12.5px;margin:0 0 15px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .row.gap{margin-top:12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:780px){.grid2{grid-template-columns:1fr}}
+  /* ---------- 控件 ---------- */
+  input,textarea,select{background:#0c0e15;color:var(--fg);border:1px solid var(--line);border-radius:10px;
+    padding:9px 12px;font:inherit;outline:none;transition:.15s}
+  input:focus,textarea:focus,select:focus{border-color:#3d4767;background:#0e111a}
+  textarea{width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.7;resize:vertical}
+  input[type=number]{width:82px}
+  input[type=time]{width:120px}
+  button{background:var(--card2);color:var(--fg);border:1px solid var(--line);border-radius:10px;
+         padding:9px 15px;font:inherit;font-weight:500;cursor:pointer;transition:.15s}
+  button:hover{border-color:#454f70;background:#252b3e}
+  button.primary{background:linear-gradient(135deg,var(--pink),var(--pink2));border:0;color:#fff;font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button.ghost{background:transparent}
+  button.sm{padding:6px 11px;font-size:12.5px;border-radius:9px}
+  button.danger{color:var(--pink2);border-color:#4a2130}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .switch{display:inline-flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
+  .switch input{display:none}
+  .switch .track{width:42px;height:24px;border-radius:999px;background:#2b3145;position:relative;transition:.18s}
+  .switch .track::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+    background:#8e95ad;transition:.18s}
+  .switch input:checked + .track{background:linear-gradient(135deg,var(--pink),var(--purple))}
+  .switch input:checked + .track::after{left:21px;background:#fff}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:99px;background:#2b3145;padding:0;width:210px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+    background:linear-gradient(135deg,var(--pink),var(--purple));cursor:pointer;border:2px solid #0f1117}
+  input[type=checkbox]{width:16px;height:16px;accent-color:var(--pink)}
+  .hint{color:var(--dim2);font-size:12.5px;margin-top:9px}
+  /* ---------- 好友卡 ---------- */
+  .friends{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin-top:14px}
+  .f{display:flex;align-items:center;gap:11px;background:var(--card2);border:1px solid var(--line);
+     border-radius:12px;padding:10px 12px;transition:.15s}
+  .f:hover{border-color:#454f70;transform:translateY(-1px)}
+  .f .av{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-weight:700;font-size:14px;
+    background:linear-gradient(135deg,#2b3148,#3b4363);flex:0 0 auto;color:#cfd4e6}
+  .f .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px}
+  .f .sp{font-size:11.5px;color:var(--amber);background:#2b2317;border:1px solid #4a3b1e;border-radius:8px;
+    padding:2px 7px;white-space:nowrap}
+  .f .cty{flex:0 0 88px;width:88px;padding:4px 6px;font-size:12.5px;border-radius:8px}
+  .f .x{cursor:pointer;color:var(--dim2);border:0;background:none;font-size:16px;padding:2px 5px;border-radius:7px}
+  .f .x:hover{color:var(--pink2);background:#2a151c}
+  .empty{color:var(--dim2);font-size:13px;padding:18px 0;text-align:center}
+  /* ---------- chips ---------- */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card2);border:1px solid var(--line);
+    border-radius:999px;padding:6px 8px 6px 13px;font-size:13px}
+  .chip b{font-weight:500}
+  .chip span.x{cursor:pointer;color:var(--dim2);font-size:14px;line-height:1}
+  .chip span.x:hover{color:var(--pink2)}
+  /* ---------- 城市列表 ---------- */
+  .cities{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px;margin-top:12px}
+  .cityrow{display:flex;align-items:center;gap:9px;background:var(--card2);border:1px solid var(--line);
+    border-radius:11px;padding:8px 11px}
+  .cityrow .nm{flex:0 0 34%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+  .cityrow input,.cityrow select{flex:1;min-width:0;padding:6px 10px;font-size:13px}
+  /* ---------- 扫描结果列表 ---------- */
+  .scanlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:8px;margin-top:14px}
+  .scanlist .it{display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--line);
+    border-radius:10px;padding:7px 10px;font-size:12.5px}
+  .scanlist .it .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .scanlist .it.done{opacity:.55}
+  .scanlist .it button{cursor:pointer;border:1px solid var(--line);background:#20263a;color:var(--fg);
+    border-radius:7px;padding:3px 8px;font-size:12px}
+  .scanlist .it button:hover{border-color:var(--pink)}
+  /* ---------- 视频类型卡片 ---------- */
+  .cat{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:9px}
+  .cat.off{opacity:.5}
+  .cat .cathd{display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:8px}
+  .cat .chips{margin:0 0 8px}
+  .cat .chip{font-size:12px;padding:4px 7px 4px 11px}
+  .cat .row input{flex:1;padding:6px 10px;font-size:12.5px}
+  /* ---------- 热点列表 ---------- */
+  .hot{max-height:290px;overflow:auto;border:1px solid var(--line);border-radius:11px;margin-top:12px;background:#0c0e15}
+  .hot .it{display:flex;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid #1b2030;font-size:13px}
+  .hot .it:last-child{border-bottom:0}
+  .hot .it.off{opacity:.42}
+  .hot .it .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hot .it a{font-size:11.5px;color:var(--dim2);text-decoration:none}
+  /* ---------- 日志 ---------- */
+  .log{background:#080a0f;border:1px solid var(--line);border-radius:11px;padding:13px;max-height:400px;
+    overflow:auto;white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;
+    line-height:1.65;color:#c3c8dd;margin-top:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim2);font-weight:500;font-size:12px}
+  .tag{font-size:11.5px;padding:2px 8px;border-radius:7px;background:#2a2f42;color:var(--dim)}
+  .tag.ok{background:#132b20;color:var(--green)}
+  .tag.no{background:#2a151c;color:var(--pink2)}
+  /* ---------- 底部操作条 ---------- */
+  .bar{position:fixed;bottom:0;left:0;right:0;z-index:20;background:rgba(15,17,23,.94);backdrop-filter:blur(12px);
+    border-top:1px solid var(--line);padding:11px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    justify-content:center}
+  .bar .info{color:var(--dim2);font-size:12.5px}
+  #toast{position:fixed;bottom:78px;left:50%;transform:translate(-50%,10px);background:#20253a;border:1px solid var(--line);
+    padding:11px 20px;border-radius:12px;opacity:0;transition:.25s;pointer-events:none;z-index:60;box-shadow:var(--shadow);font-size:13.5px}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:#2b3145;border-radius:9px}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><span class="dot">🔥</span> 抖音续火花 · 控制台</div>
+  <div class="pills">
+    <span class="pill" id="p-cookie">Cookie</span>
+    <span class="pill" id="p-friends">好友</span>
+    <span class="pill" id="p-reportpill">今日晨报</span>
+    <span class="pill" id="p-video">视频分享</span>
+    <span class="pill" id="p-sched">定时</span>
+    <span class="pill" id="p-run">空闲</span>
+  </div>
+  <div class="spacer"></div>
+  <button class="sm ghost" onclick="refresh()">刷新状态</button>
+</header>
+
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab on" data-p="friends">① 好友与城市</button>
+    <button class="tab" data-p="report">② 每日晨报</button>
+    <button class="tab" data-p="video">③ 视频分享</button>
+    <button class="tab" data-p="auth">④ 凭证与定时</button>
+    <button class="tab" data-p="logs">⑤ 运行与日志</button>
+  </div>
+
+  <!-- ============ ① 好友与消息 ============ -->
+  <section class="panel on" id="p-friends">
+    <div class="card">
+      <h3>🎯 续火花对象 <span class="tag">卡片里的「城市」框可直接改，改完自动保存</span></h3>
+      <p class="sub">扫描只读取私信列表，不会发送任何消息；火花数来自扫描时的快照。城市只用于晨报里的天气。</p>
+      <div class="row">
+        <button onclick="scan()" id="btn-scan">扫描私信列表（看谁有火花）</button>
+        <button class="ghost" onclick="importSparks()">只导入有火花的</button>
+        <button class="ghost" onclick="importAll()">全部导入</button>
+        <span class="tag" id="scan-tag"></span>
+      </div>
+      <div class="row gap">
+        <input id="new-friend" placeholder="手动添加：抖音昵称（需与私信列表完全一致）" style="flex:1;min-width:240px">
+        <button class="sm" onclick="addFriend()">添加</button>
+      </div>
+      <div class="scanlist" id="scan-list"></div>
+      <div class="friends" id="friends"></div>
+      <div class="empty" id="friends-empty">还没有好友，点上面的「扫描私信列表」或手动添加。</div>
+    </div>
+
+    <div class="card">
+      <h3>💬 文字消息池 <span class="tag">仅「按配置发送」模式使用</span></h3>
+      <p class="sub">现在默认走「② 每日晨报」+「③ 视频分享」，这里的文字只在手动选择 config 模式时才会发。</p>
+      <div class="row">
+        <input id="new-msg" placeholder="例如：续火花 ✨" style="flex:1;min-width:220px">
+        <button class="sm" onclick="addMsg()">+ 添加</button>
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+  </section>
+
+  <!-- ============ ② 每日晨报 ============ -->
+  <section class="panel" id="p-report">
+    <div class="card">
+      <h3>🌅 每天第一条：定制晨报</h3>
+      <p class="sub">当天<b>第一次</b>运行（自动 09:30 或你手动点）会给每个好友发一条晨报；当天之后的运行只转发视频。</p>
+      <div class="row">
+        <label class="switch"><input type="checkbox" id="r-on"><span class="track"></span> 启用每日晨报</label>
+        <span class="small dim">关闭后：每天第一条也直接转发视频</span>
+      </div>
+      <div class="grid2" style="margin-top:16px">
+        <div>
+          <div class="row"><span style="min-width:96px">问候语</span>
+            <input id="r-greeting" value="早上好" maxlength="20" style="width:150px">
+            <span class="small dim">→ 拼成「早上好 好友昵称」</span></div>
+          <div class="row gap"><span style="min-width:96px">热点条数</span>
+            <input type="number" id="r-count" min="1" max="10" value="5">
+            <span class="small dim">来自「60秒读懂世界」每日新闻</span></div>
+        </div>
+        <div>
+          <div class="row gap"><label class="switch"><input type="checkbox" id="r-weather"><span class="track"></span>
+            附带天气（按好友城市）</label></div>
+          <div class="row gap"><label class="switch"><input type="checkbox" id="r-quote"><span class="track"></span>
+            附带一句名言</label></div>
+        </div>
+      </div>
+      <div class="row gap">
+        <button class="sm" onclick="previewReport()" id="btn-preview">预览今日晨报</button>
+        <span class="tag" id="preview-tag"></span>
+      </div>
+      <div class="log" id="preview" style="max-height:340px;margin-top:12px">（点「预览今日晨报」看实际效果：会把真实新闻和天气拼出来，但不会发送）</div>
+    </div>
+
+    <div class="card">
+      <h3>📍 好友城市（天气用）</h3>
+      <p class="sub">
+        抖音网页版不对外暴露好友的 IP 或 IP 属地（我实测过：会话页 DOM 里没有、点头像不跳主页、搜索页也不渲染用户结果），
+        所以天气按你填的城市来查。填「武汉」「深圳」这样的城市名即可，留空则该好友的晨报不带天气段。
+      </p>
+      <div class="cities" id="cities"></div>
+      <div class="hint">改完<b>自动保存</b>（不用点保存配置）；也可以直接在上面「① 好友与城市」的卡片里改。</div>
+    </div>
+  </section>
+
+  <!-- ============ ③ 视频分享 ============ -->
+  <section class="panel" id="p-video">
+    <div class="card">
+      <h3>🎬 转发热门视频（当天第二、三次运行走这里）</h3>
+      <p class="sub">每天第一条发晨报；之后每次运行（主要是你手动点「只转发视频」）从下面勾选的类型里<b>随机挑一类</b>，再转发该类的一条视频。</p>
+      <div class="row">
+        <label class="switch"><input type="checkbox" id="v-on"><span class="track"></span> 启用视频分享</label>
+        <span class="row" style="gap:6px;margin-left:8px"><span class="small dim">每个好友每次发</span>
+          <input type="number" id="v-per" min="1" max="5" value="1" style="width:74px"><span class="small dim">条</span></span>
+      </div>
+      <div class="hint">关闭后：手动运行也不会转发视频。</div>
+    </div>
+
+    <div class="card">
+      <h3>🎯 发送哪种类型的视频</h3>
+      <p class="sub">
+        视频池来自 <b>你自己的「我的喜欢」+ 抖音热点榜</b>（实测抖音搜索页在自动化环境里不渲染，所以按标题关键词分类）。
+        勾选要发的类型，关键词可自己加减；「我的喜欢」这类填了关键词就只发命中的，留空则从整个喜欢列表里随机。
+      </p>
+      <div class="row gap">
+        <button class="sm" onclick="loadPool(false)" id="btn-pool">拉取视频池（看每类有多少条）</button>
+        <button class="sm ghost" onclick="loadPool(true)">强制刷新</button>
+        <span class="tag" id="pool-tag"></span>
+      </div>
+      <div id="cats" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card">
+      <h3>⚙️ 高级：手动指定视频</h3>
+      <p class="sub">选了「手动指定」就完全按你给的链接发，忽略上面的类型。</p>
+      <div class="row">
+        <select id="v-source" onchange="sourceChanged()" style="width:230px">
+          <option value="categories">按上面的类型随机（推荐）</option>
+          <option value="list">只用我手动指定的链接</option>
+        </select>
+      </div>
+      <div id="v-manual" style="display:none;margin-top:14px">
+        <p class="sub" style="margin-bottom:8px">手动视频链接（一行一个，形如 https://www.douyin.com/video/123…）</p>
+        <textarea id="v-urls" placeholder="https://www.douyin.com/video/7693155825774866794"></textarea>
+        <p class="sub" style="margin:12px 0 8px">不想发的视频（一行一个，从视频池里排除）</p>
+        <textarea id="v-exclude-list" placeholder="https://www.douyin.com/video/…"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ③ 凭证与定时 ============ -->
+  <section class="panel" id="p-auth">
+    <div class="card">
+      <h3>🔐 抖音 Cookie</h3>
+      <p class="sub">浏览器登录 douyin.com → Cookie-Editor 插件 → Export → JSON，整段粘贴到这里。Cookie 失效后就会提示重新粘贴。</p>
+      <textarea id="cookie" placeholder='[{"domain":".douyin.com","name":"sessionid","value":"..."}]' style="min-height:120px"></textarea>
+      <div class="row gap">
+        <button class="primary" onclick="saveCookie()">保存 Cookie</button>
+        <button onclick="runTask('dry-run','auto')">测试登录（Dry Run）</button>
+        <span class="tag" id="cookie-tag"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>⏰ 定时与发送参数</h3>
+      <div class="grid2">
+        <div>
+          <div class="row">
+            <label class="switch"><input type="checkbox" id="sched-on"><span class="track"></span> 每天定时自动发送</label>
+            <input type="time" id="sched-time" value="09:30">
+          </div>
+          <div class="hint" id="next-run">下次运行：—</div>
+        </div>
+        <div>
+          <div class="row"><span style="min-width:104px">发送间隔（秒）</span>
+            <input type="number" id="imin" min="0" value="3"> ~ <input type="number" id="imax" min="0" value="8">
+          </div>
+          <div class="row gap"><label class="switch"><input type="checkbox" id="dedup"><span class="track"></span>
+            防重复：同一天同一好友只发一次</label></div>
+        </div>
+      </div>
+      <div class="hint">抖音私信页有发送频率风控，间隔不建议小于 3 秒。</div>
+    </div>
+  </section>
+
+  <!-- ============ ④ 运行与日志 ============ -->
+  <section class="panel" id="p-logs">
+    <div class="card">
+      <h3>📊 最近一次运行</h3>
+      <div id="result"><div class="empty">还没有运行记录</div></div>
+    </div>
+    <div class="card">
+      <h3>📜 日志</h3>
+      <div class="row">
+        <button class="sm" onclick="loadRunlog()">本次运行日志</button>
+        <button class="sm ghost" onclick="loadFileLog()">历史日志文件</button>
+      </div>
+      <div class="log" id="log">（还没有日志）</div>
+    </div>
+  </section>
+</div>
+
+<div class="bar">
+  <button class="primary" onclick="saveConfig()">💾 保存配置</button>
+  <button onclick="runTask('dry-run','auto')">Dry Run（演练，不发送）</button>
+  <button onclick="runTask('send','auto')" id="btn-auto">立即执行（首次=晨报，之后=视频）</button>
+  <button onclick="runTask('send','video')">只转发视频</button>
+  <button class="ghost" onclick="runTask('send','report')" title="忽略「当天已发过」限制，再发一遍晨报">强制补发晨报</button>
+  <span class="info" id="bar-info"></span>
+</div>
+<div id="toast"></div>
+
+<script>
+const CITY_LIST = ["北京","上海","广州","深圳","天津","重庆","杭州","南京","苏州","武汉","成都","西安","长沙","郑州",
+  "合肥","济南","青岛","福州","厦门","南昌","沈阳","大连","哈尔滨","长春","石家庄","太原","呼和浩特","兰州","西宁",
+  "银川","乌鲁木齐","拉萨","昆明","贵阳","南宁","海口","三亚","东莞","佛山","珠海","温州","宁波","无锡","常州","徐州",
+  "洛阳","烟台","潍坊","唐山","保定","泉州","汕头","惠州","中山","香港","澳门","台北"];
+function cityOptionsHtml(cur){
+  cur = cur || '';
+  const known = CITY_LIST.includes(cur);
+  let h = `<option value="" ${cur?'':'selected'}>（未设）</option>`;
+  h += CITY_LIST.map(c => `<option value="${c}" ${c===cur?'selected':''}>${c}</option>`).join('');
+  if (cur && !known) h += `<option value="${esc(cur)}" selected>${esc(cur)}（自定义）</option>`;
+  h += `<option value="__custom__">✎ 其他（手动输入）…</option>`;
+  return h;
+}
+function onCitySelect(i, v){
+  if (v === '__custom__'){
+    const cur = ((ST.config.targets||[])[i]||{}).city || '';
+    const entered = window.prompt('输入城市名（查天气用，例如：武汉）', cur);
+    if (entered === null){ render(); return; }
+    setCity(i, entered);
+    render();
+    return;
+  }
+  setCity(i, v);
+}
+</script>
+<script>
+let ST = {}, HOT = [], VEXCLUDE = [], TRY = false;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const msgTexts = spec => (spec || []).flatMap(m => m.choices ? m.choices.map(c => c.content).filter(Boolean) : (m.content ? [m.content] : []));
+
+function toast(msg, bad){
+  const t = $('toast'); t.textContent = msg; t.style.borderColor = bad ? '#5a2130' : '#2a3044';
+  t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2800);
+}
+async function api(path, opts){
+  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts));
+  if (r.status === 401){ location.reload(); throw new Error('登录已过期'); }
+  const d = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+  return d;
+}
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + b.dataset.p));
+});
+
+/* ---------------- 渲染 ---------------- */
+function render(){
+  const c = ST.config || {}, v = ST.video || {}, r = ST.report || {};
+  const today = ST.report_sent_today;
+  $('p-cookie').innerHTML = ST.cookie_ok ? `Cookie <b>有效</b>·${ST.cookie_count} 条` : 'Cookie <b>缺失</b>';
+  $('p-cookie').className = 'pill ' + (ST.cookie_ok ? 'ok' : 'bad');
+  $('p-friends').innerHTML = `好友 <b>${(c.targets||[]).length}</b>`;
+  $('p-reportpill').innerHTML = (r.enabled === false ? '晨报 <b>关</b>' : (today ? '今日晨报 <b>已发</b>' : '今日晨报 <b>待发</b>'));
+  $('p-reportpill').className = 'pill ' + (r.enabled === false ? '' : (today ? 'ok' : 'run'));
+  $('p-video').innerHTML = '视频分享 ' + (v.enabled ? '<b>开</b>' : '<b>关</b>');
+  $('p-video').className = 'pill ' + (v.enabled ? 'ok' : '');
+  $('p-sched').innerHTML = '定时 ' + ((c.schedule&&c.schedule.enabled) ? `<b>${c.schedule.time}</b>` : '未开启');
+  $('p-sched').className = 'pill ' + ((c.schedule&&c.schedule.enabled) ? 'ok' : '');
+  $('p-run').innerHTML = ST.running ? `<b>运行中</b>${ST.run_kind==='dry-run'?'（Dry Run）':''}` : '<b>空闲</b>';
+  $('p-run').className = 'pill ' + (ST.running ? 'run' : 'ok');
+  $('next-run').textContent = '下次运行：' + (ST.next_run ? new Date(ST.next_run).toLocaleString('zh-CN') : '（未开启定时）');
+  $('cookie-tag').innerHTML = ST.cookie_ok ? `<span class="tag ok">已保存 ${ST.cookie_count} 条</span>` : '<span class="tag no">未配置</span>';
+  $('bar-info').textContent = `服务器时间 ${new Date(ST.server_time).toLocaleTimeString('zh-CN')}` + (ST.running ? ' · 任务运行中…' : '');
+
+  // 好友卡片（卡片上直接能改城市；有输入焦点时不重建）
+  const box = $('friends');
+  if (!box.contains(document.activeElement)) {
+    box.innerHTML = '';
+    (c.targets||[]).forEach((t, i) => {
+      const d = document.createElement('div'); d.className = 'f';
+      d.innerHTML = `<div class="av">${esc((t.name||'?').trim().slice(0,1))}</div>
+        <div class="nm" title="${esc(t.name)}">${esc(t.name)}</div>
+        ${t.spark_days_at_setup ? `<div class="sp">🔥 ${t.spark_days_at_setup}</div>` : ''}
+        <select class="cty" title="晨报天气用；选完自动保存" onchange="onCitySelect(${i}, this.value)">
+          ${cityOptionsHtml(t.city||'')}
+        </select>
+        <button class="x" title="移除" onclick="delFriend(${i})">✕</button>`;
+      box.appendChild(d);
+    });
+  }
+  $('friends-empty').style.display = (c.targets||[]).length ? 'none' : 'block';
+  renderScanList();
+
+  // 消息 chips
+  const chips = $('chips'); chips.innerHTML = '';
+  const pool = (c.message_pool && c.message_pool.length) ? c.message_pool : msgTexts((c.targets||[])[0]?.messages);
+  window._pool = [...(pool || [])];
+  window._pool.forEach((m, i) => {
+    const el = document.createElement('div'); el.className = 'chip';
+    el.innerHTML = `<b>${esc(m)}</b><span class="x" onclick="delMsg(${i})">✕</span>`;
+    chips.appendChild(el);
+  });
+  if (!window._pool.length) chips.innerHTML = '<div class="empty" style="padding:6px 0">还没有文字消息</div>';
+
+  // 视频分享设置
+  $('v-on').checked = !!v.enabled;
+  $('v-per').value = v.per_friend || 1;
+  $('v-source').value = v.source || 'categories';
+  $('v-urls').value = (v.urls || []).join('\n');
+  if (document.activeElement.id !== 'v-exclude-list') $('v-exclude-list').value = (v.exclude || []).join('\n');
+  VEXCLUDE = [...(v.exclude || [])];
+  sourceChanged();
+  // 视频类型卡片
+  if (!Object.keys(VCATS).length) initCats();
+  renderCats();
+
+  // 晨报设置
+  $('r-on').checked = r.enabled !== false;
+  if (document.activeElement.id !== 'r-greeting') $('r-greeting').value = r.greeting || '早上好';
+  if (document.activeElement.id !== 'r-count') $('r-count').value = r.news_count || 5;
+  $('r-weather').checked = r.include_weather !== false;
+  $('r-quote').checked = r.include_quote !== false;
+
+  // 城市列表（正在输入时不重建，避免光标丢失）
+  const cbox = $('cities');
+  if (!cbox.contains(document.activeElement)) {
+    cbox.innerHTML = '';
+    (c.targets||[]).forEach((t, i) => {
+      const d = document.createElement('div'); d.className = 'cityrow';
+      d.innerHTML = `<div class="nm" title="${esc(t.name)}">${esc(t.name)}</div>
+        <select class="citysel" onchange="onCitySelect(${i}, this.value)">${cityOptionsHtml(t.city||'')}</select>
+        <span class="tag ${t.city?'ok':''}">${t.city ? '已设' : '未设'}</span>`;
+      cbox.appendChild(d);
+    });
+    if (!(c.targets||[]).length) cbox.innerHTML = '<div class="empty">先在上面「① 好友与城市」里添加好友</div>';
+  }
+
+  // 最近结果
+  if (ST.last_result){
+    const rs = ST.last_result.results || [], bad = rs.filter(r=>r.status!=='success').length;
+    $('result').innerHTML = `<p class="sub">${ST.last_result.finished_at} · ${ST.last_result.dry_run?'Dry Run（未发送）':'真实发送'} ·
+      ${rs.length} 个目标，失败 ${bad} 个</p>
+      <table><thead><tr><th>好友</th><th>状态</th><th>发送条数</th><th>错误</th></tr></thead><tbody>
+      ${rs.map(r=>`<tr><td>${esc(r.target)}</td>
+        <td><span class="tag ${r.status==='success'?'ok':'no'}">${r.status==='success'?'成功':'失败'}</span></td>
+        <td>${r.sent ?? 0}</td><td style="color:var(--dim2)">${esc(r.error||'')}</td></tr>`).join('')}
+      </tbody></table>`;
+  }
+}
+function ratioLabel(){ /* 兼容旧引用 */ }
+let CITY_TIMER = null;
+function setCity(i, v, silent){
+  const t = (ST.config.targets||[])[i];
+  if (!t) return;
+  t.city = (v || '').trim();
+  // 顺手同步 ② 页那张城市列表（若存在）
+  const citySelects = document.querySelectorAll('#cities select');
+  if (citySelects[i]) citySelects[i].value = t.city;
+  const badges = document.querySelectorAll('#cities .tag');
+  if (badges[i]) { badges[i].textContent = t.city ? '已设' : '未设'; badges[i].className = 'tag ' + (t.city ? 'ok' : ''); }
+  clearTimeout(CITY_TIMER);
+  CITY_TIMER = setTimeout(async () => {
+    try{
+      await api('/api/city', {method:'POST', body: JSON.stringify({name: t.name, city: t.city})});
+      if (!silent) toast(`已自动保存城市：${t.name} → ${t.city || '（清空）'}`);
+    }catch(e){ toast('城市保存失败（可能是还没保存过这个好友）：'+e.message, true); }
+  }, 1000);
+}
+async function previewReport(){
+  const b = $('btn-preview'); b.disabled = true; $('preview-tag').innerHTML = '<span class="tag">生成中…</span>';
+  try{
+    const name = (ST.config.targets||[])[0]?.name;
+    const q = name ? ('?name=' + encodeURIComponent(name)) : '';
+    const d = await api('/api/report/preview' + q);
+    $('preview').textContent = d.text;
+    $('preview-tag').innerHTML = `<span class="tag ok">${d.news.length} 条热点${d.city ? ' · 城市 ' + esc(d.city) : ' · 未设城市（无天气段）'}</span>`;
+    if (d.warning) toast(d.warning, true);
+  }catch(e){ toast('预览失败：'+e.message, true); $('preview-tag').innerHTML=''; }
+  b.disabled = false;
+}
+function sourceChanged(){
+  const list = $('v-source').value === 'list';
+  $('v-manual').style.display = list ? 'block' : 'none';
+  $('cats').style.display = list ? 'none' : 'block';
+}
+
+/* ---------------- 数据操作 ---------------- */
+async function refresh(){
+  try{
+    ST = await api('/api/state'); render();
+    if (ST.running){ setTimeout(refresh, 3000); loadRunlog(); }
+  }catch(e){ console.warn('refresh 出错:', e && e.message); }
+}
+function delFriend(i){ ST.config.targets.splice(i,1); render(); }
+function addFriend(){
+  const v = $('new-friend').value.trim(); if(!v) return;
+  ST.config.targets = ST.config.targets || [];
+  if (ST.config.targets.some(t=>t.name===v)) return toast('已经在了', true);
+  const hit = (window._scan||[]).find(i=>i.name===v);
+  ST.config.targets.push({name:v, spark_days_at_setup: hit ? hit.spark_days : null});
+  $('new-friend').value=''; render();
+}
+function delMsg(i){ window._pool.splice(i,1); const c=ST.config; c.message_pool=window._pool; render(); }
+function addMsg(){
+  const v = $('new-msg').value.trim(); if(!v) return;
+  window._pool.push(v); ST.config.message_pool = window._pool; $('new-msg').value=''; render();
+}
+$('new-msg').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); addMsg(); } });
+$('new-friend').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); addFriend(); } });
+
+async function scan(){
+  const b=$('btn-scan'); b.disabled=true; $('scan-tag').innerHTML='<span class="tag">扫描中…约 30 秒（会滚动整个列表）</span>';
+  try{
+    const d = await api('/api/scan', {method:'POST', body:'{}'});
+    window._scan = d.items;
+    const sp = d.items.filter(i=>i.spark_days);
+    const icon = d.items.filter(i=>i.spark_icon && !i.spark_days);
+    $('scan-tag').innerHTML = `<span class="tag ok">${d.items.length} 个会话 · ${sp.length} 个有火花</span>`;
+    toast(`扫描完成：${d.items.length} 个会话，${sp.length} 个有火花，${icon.length} 个有火花标记但未点亮`);
+    render();
+  }catch(e){ $('scan-tag').innerHTML=''; toast('扫描失败：'+e.message, true); }
+  b.disabled=false;
+}
+function renderScanList(){
+  const box = $('scan-list'); if(!box) return;
+  const items = window._scan || [];
+  if(!items.length){ box.innerHTML = ''; return; }
+  const have = new Set((ST.config.targets||[]).map(t=>t.name));
+  box.innerHTML = '';
+  items.forEach(i=>{
+    const done = have.has(i.name);
+    const badge = i.spark_days ? `<span class="tag ok">🔥${i.spark_days}</span>`
+      : (i.spark_icon ? '<span class="tag">未点亮</span>' : '<span class="tag">—</span>');
+    const d = document.createElement('div');
+    d.className = 'it' + (done ? ' done' : '');
+    d.innerHTML = `<span class="nm" title="${esc(i.name)}">${esc(i.name)}</span>${badge}
+      <button onclick="addOne('${esc(i.name).replace(/'/g, "\\'")}', ${i.spark_days || 0})">${done ? '已在列表' : '+ 添加'}</button>`;
+    box.appendChild(d);
+  });
+}
+function addOne(name, spark){
+  ST.config.targets = ST.config.targets || [];
+  if (ST.config.targets.some(t=>t.name===name)) return;
+  ST.config.targets.push({name, spark_days_at_setup: spark || null});
+  render(); toast(`已加入：${name}（记得点保存配置）`);
+}
+function importAll(){
+  if(!window._scan) return toast('先点「扫描私信列表」', true);
+  const have = new Set((ST.config.targets||[]).map(t=>t.name)); let added=0;
+  window._scan.forEach(i=>{ if(!have.has(i.name)){ ST.config.targets.push({name:i.name, spark_days_at_setup:i.spark_days||null, city:''}); have.add(i.name); added++; } });
+  render(); toast(`全部导入：新增 ${added} 个，共 ${ST.config.targets.length} 个（记得点保存配置）`);
+}
+function importSparks(){
+  if(!window._scan) return toast('先点「扫描私信列表」', true);
+  const sparks = window._scan.filter(i=>i.spark_days);
+  const have = new Set((ST.config.targets||[]).map(t=>t.name)); let added=0;
+  sparks.forEach(i=>{ if(!have.has(i.name)){ ST.config.targets.push({name:i.name, spark_days_at_setup:i.spark_days}); have.add(i.name); added++; } });
+  render(); toast(`导入完成：新增 ${added} 个，共 ${ST.config.targets.length} 个（记得保存配置）`);
+}
+/* ---------------- 视频类型配置 ---------------- */
+let VCATS = {}, POOL = null;
+
+function initCats(){
+  const def = ST.video_defaults || {order:[], keywords:{}};
+  const saved = ((ST.config||{}).video_share||{}).categories || {};
+  VCATS = {};
+  (def.order || []).forEach(n => {
+    const s = saved[n];
+    const dk = (def.keywords && def.keywords[n]) || [];
+    if (s && typeof s === 'object' && !Array.isArray(s)) {
+      VCATS[n] = {enabled: s.enabled !== false, keywords: (s.keywords && s.keywords.length) ? s.keywords.slice() : dk.slice()};
+    } else if (Array.isArray(s)) {
+      VCATS[n] = {enabled: true, keywords: s.length ? s.slice() : dk.slice()};
+    } else {
+      VCATS[n] = {enabled: true, keywords: dk.slice()};
+    }
+  });
+}
+function toggleCat(name, on){ VCATS[name].enabled = !!on; renderCats(); }
+function delKw(name, i){ VCATS[name].keywords.splice(i, 1); renderCats(); }
+function addKw(name, v){
+  const kw = String(v||'').trim(); if (!kw) return;
+  if (!VCATS[name].keywords.includes(kw)) VCATS[name].keywords.push(kw);
+  renderCats();
+}
+function renderCats(){
+  const box = $('cats'); if(!box || box.contains(document.activeElement)) return;
+  box.innerHTML = '';
+  Object.keys(VCATS).forEach(name => {
+    const c = VCATS[name];
+    const info = POOL && POOL.categories ? POOL.categories[name] : null;
+    const cnt = info ? info.count : null;
+    const samples = info ? (info.samples || []) : [];
+    const d = document.createElement('div');
+    d.className = 'cat' + (c.enabled ? '' : ' off');
+    d.innerHTML = `
+      <div class="cathd">
+        <label class="switch"><input type="checkbox" ${c.enabled?'checked':''}
+          onchange="toggleCat('${name}', this.checked)"><span class="track"></span> <b>${name}</b></label>
+        ${cnt!==null?`<span class="tag ${cnt?'ok':'bad'}">${cnt} 条可用</span>`:''}
+      </div>
+      <div class="chips">${c.keywords.map((k,i)=>`<span class="chip"><b>${esc(k)}</b><span class="x" onclick="delKw('${name}',${i})">✕</span></span>`).join('')
+        || '<span class="small dim">（没设关键词：该类全部视频都发，随机挑）</span>'}</div>
+      <div class="row"><input placeholder="加个关键词，回车确认"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();addKw('${name}', this.value); this.value='';}"></div>
+      ${samples.length?`<div class="hint">例：${samples.map(s=>esc((s.title||'').slice(0,26))).join(' ／ ')}</div>`:''}`;
+    box.appendChild(d);
+  });
+}
+async function loadPool(refresh){
+  const b = $('btn-pool'); b.disabled = true;
+  $('pool-tag').innerHTML = '<span class="tag">抓取中…约 30 秒（会滚动你的喜欢列表）</span>';
+  try{
+    const d = await api('/api/videos/pool' + (refresh ? '?refresh=1' : ''));
+    POOL = d;
+    $('pool-tag').innerHTML = `<span class="tag ok">共 ${d.total||0} 条${d.cached?'（缓存）':''}</span>`;
+    renderCats();
+  }catch(e){ toast('拉取失败：'+e.message, true); $('pool-tag').innerHTML=''; }
+  b.disabled = false;
+}
+async function saveCookie(){
+  try{ const d = await api('/api/cookie', {method:'POST', body: JSON.stringify({cookie: $('cookie').value})});
+    toast(`Cookie 已保存（${d.count} 条）`); $('cookie').value=''; await refresh();
+  }catch(e){ toast('保存失败：'+e.message, true); }
+}
+async function saveConfig(){
+  const pool = window._pool || [];
+  const raw = ST.config.targets || [];
+  if(!raw.length) return toast('至少配置一个好友', true);
+  if(!$('r-on').checked && !$('v-on').checked) return toast('晨报和视频分享至少要开一个', true);
+  const targets = raw.map(t => ({name:t.name, spark_days_at_setup:t.spark_days_at_setup, city:t.city||''}));
+  try{
+    const d = await api('/api/config', {method:'POST', body: JSON.stringify({
+      targets, message_pool: pool,
+      report_enabled: $('r-on').checked,
+      report_greeting: $('r-greeting').value || '早上好',
+      report_news_count: +$('r-count').value || 5,
+      report_weather: $('r-weather').checked,
+      report_quote: $('r-quote').checked,
+      video_enabled: $('v-on').checked,
+      per_friend: +$('v-per').value,
+      video_source: $('v-source').value,
+      video_categories: VCATS,
+      video_urls: $('v-urls').value.split('\n').map(s=>s.trim()).filter(Boolean),
+      video_exclude: $('v-exclude-list').value.split('\n').map(s=>s.trim()).filter(Boolean),
+      interval_min: +$('imin').value, interval_max: +$('imax').value,
+      prevent_duplicates: $('dedup').checked,
+      schedule_enabled: $('sched-on').checked, schedule_time: $('sched-time').value,
+    })});
+    const withCity = targets.filter(t=>t.city).length;
+    toast(`已保存：${d.targets} 个好友 · ${withCity} 个设了城市`); await refresh();
+  }catch(e){ toast('保存失败：'+e.message, true); }
+}
+async function runTask(kind, mode){
+  const dry = kind === 'dry-run';
+  const label = dry ? 'Dry Run（演练，不会真发）' : (mode === 'video' ? '给所有好友转发视频' : (mode === 'report' ? '强制补发一遍今天的晨报' : '执行（当天首次=晨报，之后=视频）'));
+  if(!dry && !confirm(`即将${label}，确定？`)) return;
+  try{ await api('/api/run', {method:'POST', body: JSON.stringify({dry_run: dry, mode: mode || 'auto'})});
+    toast(dry ? 'Dry Run 已启动（会验证视频分享链路并预览晨报）' : '任务已启动');
+    setTimeout(refresh, 1500);
+  }catch(e){ toast(e.message, true); }
+}
+async function loadRunlog(){
+  try{ const d = await api('/api/runlog'); $('log').textContent = d.log || '（暂无）'; }catch(e){}
+}
+async function loadFileLog(){
+  try{ const d = await api('/api/logs'); $('log').textContent = `[${d.file||'无文件'}]\n` + d.text; }catch(e){}
+}
+/* 定时刷新设置项（避免覆盖正在编辑的内容） */
+function syncInputs(){
+  const c = ST.config || {};
+  if (document.activeElement.id !== 'imin') $('imin').value = c.send_interval_seconds?.min ?? 3;
+  if (document.activeElement.id !== 'imax') $('imax').value = c.send_interval_seconds?.max ?? 8;
+  $('dedup').checked = !!c.prevent_duplicates;
+  $('sched-on').checked = !!(c.schedule && c.schedule.enabled);
+  if (document.activeElement.id !== 'sched-time') $('sched-time').value = (c.schedule && c.schedule.time) || '09:30';
+}
+const _render = render;
+render = function(){ _render(); syncInputs(); };
+refresh();
+setInterval(refresh, 15000);
+</script>
+</body>
+</html>

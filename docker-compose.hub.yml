@@ -1,0 +1,28 @@
+# 用现成镜像（不用自己 build）—— 给不想编译的人
+#
+#   mkdir -p douyin-auto-fire && cd douyin-auto-fire
+#   把本文件保存成 docker-compose.yml
+#   echo "WEB_PASSWORD=自定密码" > .env
+#   docker compose up -d
+#
+# 然后打开 http://<服务器IP>:8600
+services:
+  douyin-auto-fire:
+    image: caowenrui/douyin-auto-fire:latest
+    container_name: douyin-auto-fire
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8600}:8600"
+    environment:
+      WEB_PASSWORD: ${WEB_PASSWORD:?请先在 .env 里设置 WEB_PASSWORD}
+      TZ: ${TZ:-Asia/Shanghai}
+      HEADLESS: "true"
+    volumes:
+      # config.json / secrets/cookie.json / artifacts 都在这里，备份它就够了
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8600/healthz',timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

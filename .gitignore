@@ -1,14 +1,29 @@
+# ---- 凭证 / 隐私（绝对不要提交）----
 .env
 .env.account*
 !.env.account.example
+secrets/
+storage-state.json
+storage_state/
+config.json
+config/tasks.json
+config/tasks/
+
+# ---- 运行时产物 ----
+artifacts/*
+!artifacts/.gitkeep
+runtime-data/
+deploy-bundle/
+
+# ---- 本机一次性脚本（保留在磁盘，不进仓库）----
+tools/_local/
+
+# ---- Python / 编辑器 ----
 .venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
-artifacts/*
-!artifacts/.gitkeep
-config/tasks.json
-config/tasks/
-config.json
-storage-state.json
-storage_state/
+.DS_Store
+*.swp
+.idea/
+.vscode/
