@@ -24,7 +24,8 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/douyin-auto-fire
           tags: |
-            type=ref,event=tag
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
       - uses: docker/build-push-action@v6
         with:
