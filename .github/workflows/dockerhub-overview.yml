@@ -61,7 +61,8 @@ jobs:
             // 2) README → full_description（相对资源改绝对地址，否则 Hub 上是破图）
             const raw = `https://raw.githubusercontent.com/${GH_REPO}/${BRANCH}`;
             const blob = `https://github.com/${GH_REPO}/blob/${BRANCH}`;
-            let md = fs.readFileSync('README.md', 'utf8');
+            // Docker Hub 页面只放精简版（镜像说明为主），完整介绍留在 GitHub
+              let md = fs.readFileSync('docs/dockerhub-overview.md', 'utf8');
             md = md
               .replace(/<img([^>]*?)src="docs\//g, `<img$1src="${raw}/docs/`)
               .replace(/!\[([^\]]*)\]\(docs\//g, `![$1](${raw}/docs/`)
