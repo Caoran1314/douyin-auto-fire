@@ -3,7 +3,7 @@
 # 约定：stdout 非空才会通知用户（no_agent cron 语义）；成功静默。
 set -uo pipefail
 
-PROJ="/vol1/@appdata/trim.hermes/workspace/douyin-auto-fire"
+PROJ="/你的路径/douyin-auto-fire"
 PY="$PROJ/.venv/bin/python"
 cd "$PROJ" || exit 0
 
