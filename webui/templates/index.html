@@ -148,6 +148,7 @@
 </style>
 </head>
 <body>
+<div id="auth-banner" style="display:none;position:sticky;top:0;z-index:99;background:#7f1d1d;color:#fff;padding:10px 16px;font-size:14px;text-align:center"></div>
 
 <header class="top">
   <div class="brand"><span class="dot">🔥</span> 抖音续火花 · 控制台</div>
@@ -304,6 +305,18 @@
       </div>
     </div>
 
+    <div class="card" id="qr-card">
+      <h3>📱 扫码登录（推荐）</h3>
+      <p class="sub">点下面的按钮生成二维码，用抖音 App 扫码确认。成功后会自动保存登录态，不用再手动导出 Cookie。</p>
+      <div class="row gap">
+        <button class="primary" onclick="startQr()">生成二维码</button>
+        <span class="tag" id="qr-tag"></span>
+      </div>
+      <div id="qr-wrap" style="display:none;margin-top:14px;text-align:center">
+        <img id="qr-img" alt="抖音登录二维码" style="width:240px;max-width:70%;border-radius:12px;background:#fff;padding:8px"/>
+      </div>
+    </div>
+
     <div class="card">
       <h3>⏰ 定时与发送参数</h3>
       <div class="grid2">
@@ -345,6 +358,11 @@
 
 <div class="bar">
   <button class="primary" onclick="saveConfig()">💾 保存配置</button>
+  <div class="row gap" style="align-items:center;margin-bottom:8px">
+    <label style="font-size:13px">只发给：</label>
+    <select id="run-only" style="min-width:180px"></select>
+    <span class="tag">调试阶段默认只发第一个好友；选「全部好友」才群发</span>
+  </div>
   <button onclick="runTask('dry-run','auto')">Dry Run（演练，不发送）</button>
   <button onclick="runTask('send','auto')" id="btn-auto">立即执行（首次=晨报，之后=视频）</button>
   <button onclick="runTask('send','video')">只转发视频</button>
@@ -403,6 +421,12 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
 
 /* ---------------- 渲染 ---------------- */
 function render(){
+  renderRunOnly();
+  const banner = $('auth-banner');
+  if(banner){
+    if(ST.last_auth_error){ banner.style.display='block'; banner.textContent='⚠️ ' + ST.last_auth_error + '（到 ④ 凭证与定时 扫码登录）'; }
+    else banner.style.display='none';
+  }
   const c = ST.config || {}, v = ST.video || {}, r = ST.report || {};
   const today = ST.report_sent_today;
   $('p-cookie').innerHTML = ST.cookie_ok ? `Cookie <b>有效</b>·${ST.cookie_count} 条` : 'Cookie <b>缺失</b>';
@@ -533,6 +557,30 @@ function sourceChanged(){
 }
 
 /* ---------------- 数据操作 ---------------- */
+async function startQr(){
+  $('qr-tag').innerHTML = '<span class="tag">生成中…</span>';
+  try{
+    const d = await api('/api/login/qr/start', {method:'POST', body:'{}'});
+    if(!d.ok){ $('qr-tag').innerHTML='<span class="tag no">'+(d.error||'生成失败')+'</span>'; return; }
+    $('qr-wrap').style.display='block';
+    $('qr-img').src = d.image;
+    $('qr-tag').innerHTML = '<span class="tag">等待扫码…</span>';
+    pollQr(d.id);
+  }catch(e){ $('qr-tag').innerHTML='<span class="tag no">生成失败：'+e.message+'</span>'; }
+}
+async function pollQr(id){
+  let rev = 0;
+  for(let i=0;i<155;i++){
+    await new Promise(r=>setTimeout(r,2000));
+    try{
+      const s = await api('/api/login/qr/status?id='+encodeURIComponent(id)+'&since='+rev);
+      if(s.image && s.rev !== rev){ rev = s.rev; $('qr-img').src = s.image; }
+      if(s.status==='ok'){ $('qr-tag').innerHTML='<span class="tag ok">登录成功，已保存</span>'; toast('扫码登录成功'); $('qr-wrap').style.display='none'; await refresh(); return; }
+      if(s.status==='failed' || s.status==='expired'){ $('qr-tag').innerHTML='<span class="tag no">'+(s.error||'二维码失效')+'</span>'; return; }
+    }catch(e){ /* 继续轮询 */ }
+  }
+  $('qr-tag').innerHTML='<span class="tag no">二维码已过期，请重新生成</span>';
+}
 async function refresh(){
   try{
     ST = await api('/api/state'); render();
@@ -699,11 +747,21 @@ async function saveConfig(){
     toast(`已保存：${d.targets} 个好友 · ${withCity} 个设了城市`); await refresh();
   }catch(e){ toast('保存失败：'+e.message, true); }
 }
+function renderRunOnly(){
+  const sel = $('run-only'); if(!sel) return;
+  const cur = sel.value;
+  const names = ((ST.config && ST.config.targets) || []).map(t=>t.name);
+  sel.innerHTML = names.map((n,i)=>'<option value="'+n+'">'+(i+1)+'. '+n+'</option>').join('') + '<option value="__ALL__">全部好友（群发）</option>';
+  if(cur) sel.value = cur;
+}
 async function runTask(kind, mode){
   const dry = kind === 'dry-run';
   const label = dry ? 'Dry Run（演练，不会真发）' : (mode === 'video' ? '给所有好友转发视频' : (mode === 'report' ? '强制补发一遍今天的晨报' : '执行（当天首次=晨报，之后=视频）'));
+  const sel = $('run-only');
+  const only = sel ? sel.value : '';
+  if(!dry && only === '__ALL__' && !confirm('当前选择的是「全部好友」，调试阶段建议只选一个人。仍然继续？')) return;
   if(!dry && !confirm(`即将${label}，确定？`)) return;
-  try{ await api('/api/run', {method:'POST', body: JSON.stringify({dry_run: dry, mode: mode || 'auto'})});
+  try{ await api('/api/run', {method:'POST', body: JSON.stringify({dry_run: dry, mode: mode || 'auto', only: only === '__ALL__' ? '' : only})});
     toast(dry ? 'Dry Run 已启动（会验证视频分享链路并预览晨报）' : '任务已启动');
     setTimeout(refresh, 1500);
   }catch(e){ toast(e.message, true); }

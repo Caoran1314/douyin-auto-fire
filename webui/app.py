@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import secrets
@@ -110,20 +111,21 @@ def next_run_at() -> str | None:
     return target.isoformat()
 
 
-async def run_task(kind: str, mode: str = "auto") -> None:
+async def run_task(kind: str, mode: str = "auto", only: str | None = None) -> None:
     """kind: dry-run | send；mode: auto | report | video | config"""
     async with LOCK:
         if STATE["running"]:
             return
         STATE.update(running=True, kind=kind, mode=mode, started_at=datetime.now(TZ).isoformat(), log="", returncode=None)
     args = [sys.executable, str(BASE / "run.py"), "--mode", mode]
+    env_extra = {"ONLY_TARGET": (only or "").strip()} if only else {}
     if kind == "dry-run":
         args.append("--dry-run")
     try:
         proc = await asyncio.create_subprocess_exec(
             *args,
             cwd=str(BASE),
-            env=child_env(),
+            env={**child_env(), **env_extra},
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
@@ -136,6 +138,25 @@ async def run_task(kind: str, mode: str = "auto") -> None:
     finally:
         STATE["running"] = False
         STATE["finished_at"] = datetime.now(TZ).isoformat()
+        try:
+            log = STATE.get("log") or ""
+            if STATE.get("returncode") not in (0, None) and ("登录状态失效" in log or "登录检查" in log or "AuthenticationError" in log):
+                alert_dir = os.getenv("ALERT_DIR", "")
+                STATE["last_auth_error"] = "登录状态失效，请到配置台重新扫码登录"
+                if alert_dir:
+                    write_json(Path(alert_dir) / "ALERT.json", {
+                        "time": datetime.now(TZ).isoformat(),
+                        "task_id": "daily-streak",
+                        "total": 1,
+                        "failed": 1,
+                        "sent": 0,
+                        "errors": ["登录状态失效"],
+                        "hint": "打开配置台 → ④ 凭证与定时 → 扫码登录（或重新粘贴 Cookie）",
+                    })
+            else:
+                STATE["last_auth_error"] = ""
+        except Exception:  # noqa: BLE001
+            pass
 
 
 async def scheduler_loop() -> None:
@@ -250,9 +271,16 @@ async def api_state(request: Request):
     ok, count = cookie_ok()
     result = read_json(ARTIFACTS / "result.json", None)
     sch = schedule_cfg()
+    cookie_mtime = None
+    try:
+        cookie_mtime = datetime.fromtimestamp(COOKIE_PATH.stat().st_mtime, TZ).isoformat()
+    except Exception:  # noqa: BLE001
+        pass
     return {
         "cookie_ok": ok,
         "cookie_count": count,
+        "cookie_updated_at": cookie_mtime,
+        "qr_status": QR.get("status"),
         "config": read_json(CONFIG_PATH, {}),
         "schedule": sch,
         "next_run": next_run_at(),
@@ -358,8 +386,9 @@ async def api_run(payload: dict, request: Request):
     ok, _ = cookie_ok()
     if not ok:
         raise HTTPException(status_code=400, detail="还没配置 Cookie")
-    asyncio.create_task(run_task(kind, mode))
-    return {"ok": True, "kind": kind, "mode": mode}
+    only = str(payload.get("only") or "").strip()
+    asyncio.create_task(run_task(kind, mode, only))
+    return {"ok": True, "kind": kind, "mode": mode, "only": only}
 
 
 @app.post("/api/city")
@@ -529,6 +558,170 @@ def tail_file(path: Path, lines: int) -> str:
     except Exception as exc:  # noqa: BLE001
         return f"读取失败: {exc}"
 
+
+
+# ---------------------------------------------------------------- 扫码登录
+QR: dict = {"id": None, "status": "idle", "error": "", "image": None, "task": None}
+
+
+def _qr_data_url(png: bytes) -> str:
+    return "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+
+
+async def _capture_qr(page) -> bytes:
+    """截取登录弹窗里的二维码（优先按元素裁，兜底按固定区域裁）"""
+    try:
+        for sel in ('img[src^="data:image"]', '[class*="login"] img', 'img'):
+            loc = page.locator(sel).first
+            if not await loc.count():
+                continue
+            box = await loc.bounding_box()
+            if box and 150 <= box.get("width", 0) <= 420 and 150 <= box.get("height", 0) <= 420:
+                ratio = box["width"] / max(1, box["height"])
+                if not (0.7 <= ratio <= 1.4):
+                    continue
+                pad = 10
+                clip = {
+                    "x": max(0, box["x"] - pad),
+                    "y": max(0, box["y"] - pad),
+                    "width": box["width"] + pad * 2,
+                    "height": box["height"] + pad * 2,
+                }
+                return await page.screenshot(clip=clip, type="png")
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        return await page.screenshot(clip={"x": 410, "y": 380, "width": 250, "height": 250}, type="png")
+    except Exception:  # noqa: BLE001
+        return await page.screenshot(type="png")
+
+
+async def _qr_login_worker(qid: str) -> None:
+    from playwright.async_api import async_playwright
+
+    pw = None
+    browser = None
+    context = None
+    try:
+        pw = await async_playwright().start()
+        browser = await pw.chromium.launch(
+            headless=True,
+            args=[
+                "--disable-dev-shm-usage",
+                "--no-sandbox",
+                "--disable-blink-features=AutomationControlled",
+                "--lang=zh-CN",
+            ],
+        )
+        context = await browser.new_context(
+            viewport={"width": 1440, "height": 1000},
+            locale="zh-CN",
+            timezone_id="Asia/Shanghai",
+            user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"),
+        )
+        await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
+        page = await context.new_page()
+        await page.goto("https://www.douyin.com/", wait_until="load", timeout=60000)
+        await asyncio.sleep(6)
+        for text in ("登录", "扫码登录"):
+            try:
+                loc = page.get_by_text(text, exact=True).first
+                if await loc.count():
+                    await loc.click(timeout=5000)
+                    await asyncio.sleep(1.5)
+            except Exception:  # noqa: BLE001
+                pass
+        png = await _capture_qr(page)
+        QR["image"] = _qr_data_url(png)
+        QR["status"] = "waiting"
+        QR["rev"] = 1
+        try:
+            (ARTIFACTS / "qr-debug.png").write_bytes(await page.screenshot(type="png"))
+        except Exception:  # noqa: BLE001
+            pass
+        last_cap = time.time()
+        deadline = time.time() + 300
+        while time.time() < deadline:
+            await asyncio.sleep(2)
+            try:
+                login_btn = page.get_by_text("登录", exact=True)
+                visible = await login_btn.count() and await login_btn.first.is_visible()
+            except Exception:  # noqa: BLE001
+                visible = True
+            if not visible:
+                # 登录成功：保存档案 + cookie
+                secrets_dir = COOKIE_PATH.parent
+                await context.storage_state(path=str(secrets_dir / "storage_state.json"))
+                live = await context.cookies()
+                keep = ("name", "value", "domain", "path", "expires", "httpOnly", "secure", "sameSite")
+                rows = [{k: c.get(k) for k in keep if c.get(k) is not None} for c in live if c.get("name")]
+                write_json(COOKIE_PATH, rows)
+                (secrets_dir / "storage_state.json").chmod(0o600)
+                COOKIE_PATH.chmod(0o600)
+                QR["status"] = "ok"
+                return
+            # 每 15 秒重新截一次（抖音二维码会自动刷新，避免用户拿到已失效的码）
+            if time.time() - last_cap > 15:
+                try:
+                    for txt in ("点击刷新", "刷新二维码", "重新获取", "刷新"):
+                        loc = page.get_by_text(txt, exact=False).first
+                        if await loc.count() and await loc.is_visible():
+                            await loc.click(timeout=3000)
+                            await asyncio.sleep(1)
+                            break
+                except Exception:  # noqa: BLE001
+                    pass
+                try:
+                    png = await _capture_qr(page)
+                    QR["image"] = _qr_data_url(png)
+                    QR["rev"] = int(QR.get("rev") or 0) + 1
+                    last_cap = time.time()
+                except Exception:  # noqa: BLE001
+                    pass
+        QR["status"] = "expired"
+        QR["error"] = "二维码已过期，请重新生成"
+    except Exception as exc:  # noqa: BLE001
+        QR["status"] = "failed"
+        QR["error"] = str(exc)[:300]
+    finally:
+        try:
+            if context:
+                await context.close()
+            if browser:
+                await browser.close()
+            if pw:
+                await pw.stop()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+@app.post("/api/login/qr/start")
+async def api_login_qr_start(request: Request):
+    require_auth(request)
+    if QR["status"] in ("waiting", "starting") and QR.get("task"):
+        return {"ok": True, "id": QR["id"], "image": QR.get("image")}
+    QR.update(id=secrets.token_hex(6), status="starting", error="", image=None, rev=0)
+    QR["task"] = asyncio.create_task(_qr_login_worker(QR["id"]))
+    for _ in range(60):
+        if QR.get("image"):
+            break
+        await asyncio.sleep(0.5)
+    if not QR.get("image"):
+        return {"ok": False, "error": QR.get("error") or "生成二维码超时", "id": QR["id"]}
+    return {"ok": True, "id": QR["id"], "image": QR["image"], "rev": QR.get("rev", 1)}
+
+
+@app.get("/api/login/qr/status")
+async def api_login_qr_status(request: Request, id: str = "", since: int = 0):
+    require_auth(request)
+    if id and QR.get("id") and id != QR["id"]:
+        return {"status": "expired", "error": "旧二维码已失效"}
+    rev = int(QR.get("rev") or 0)
+    out = {"status": QR["status"], "error": QR.get("error") or "", "id": QR.get("id"), "rev": rev}
+    if rev > since and QR.get("image"):
+        out["image"] = QR["image"]
+    return out
 
 LOGIN_HTML = """<!doctype html><html lang="zh-CN"><meta charset="utf-8">
 <title>登录 · 抖音续火花配置台</title>

@@ -80,7 +80,7 @@ async def open_douyin(settings: Settings) -> AsyncIterator[BrowserSession]:
     state_path: Path | None = None
     try:
         playwright = await async_playwright().start()
-        launch_args = {"headless": settings.headless}
+        launch_args = {"headless": settings.headless, "args": ["--disable-dev-shm-usage", "--no-sandbox"]}
         if settings.browser_path:
             launch_args["executable_path"] = settings.browser_path
         browser = await playwright.chromium.launch(**launch_args)
@@ -140,6 +140,20 @@ async def open_douyin(settings: Settings) -> AsyncIterator[BrowserSession]:
                     LOGGER.info("已保存浏览器档案 -> %s", session.state_path)
                 except Exception:  # noqa: BLE001
                     LOGGER.warning("保存浏览器档案失败", exc_info=True)
+                # 已把最新 cookie 写回 cookie.json（自动续期，避免下次被旧 cookie 覆盖）
+                if not settings.storage_state and settings.cookie:
+                    try:
+                        live = await context.cookies()
+                        keep = ("name", "value", "domain", "path", "expires", "httpOnly", "secure", "sameSite")
+                        rows = [{k: c.get(k) for k in keep if c.get(k) is not None} for c in live if c.get("name")]
+                        target = Path(settings.cookie).expanduser()
+                        tmp = target.with_suffix(target.suffix + ".tmp")
+                        tmp.write_text(json.dumps(rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                        tmp.replace(target)
+                        target.chmod(0o600)
+                        LOGGER.info("已把最新 cookie 写回 %s（%d 条）", target, len(rows))
+                    except Exception:  # noqa: BLE001
+                        LOGGER.warning("写回 cookie 失败", exc_info=True)
     finally:
         if context:
             await context.close()

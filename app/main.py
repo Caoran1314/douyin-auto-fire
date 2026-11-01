@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import os
 import asyncio
 import json
 import logging
 import random
 import re
 import hashlib
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -41,6 +42,18 @@ MODES = (MODE_AUTO, MODE_REPORT, MODE_VIDEO, MODE_CONFIG)
 async def run(dry_run: bool = False, env_file: str | None = None, mode: str = MODE_AUTO) -> int:
     settings = load_settings(env_file)
     task = load_task(settings)
+    # 调试限制：ONLY_TARGET 指定只发给某一个好友（名称或 1 开始的序号）
+    only = (os.getenv("ONLY_TARGET") or "").strip()
+    if only:
+        picked = [t for t in task.targets if t.name == only]
+        if not picked:
+            try:
+                picked = [task.targets[int(only) - 1]]
+            except (ValueError, IndexError):
+                picked = []
+        if picked:
+            task = replace(task, targets=tuple(picked))
+            LOGGER.info("调试模式：只发送给 %s", picked[0].name)
     settings.artifacts_dir.mkdir(parents=True, exist_ok=True)
     aliases = build_target_aliases(task.targets)
     _configure_logging(settings.artifacts_dir, aliases)

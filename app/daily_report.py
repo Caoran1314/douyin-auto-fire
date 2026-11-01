@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import asyncio
+import time
 import json
+import os
 import logging
 import random
 import urllib.parse
@@ -82,12 +84,41 @@ BLANK = "\n \n"  # 抖音输入框会把连续空行折叠，用「空格行」�
 # ------------------------------------------------------------------ 新闻
 def _http_json(url: str, timeout: int = TIMEOUT) -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": "douyin-auto-fire/1.0"})
+    # 容器直连部分新闻源会被 Cloudflare 403；优先走宿主机 mihomo 代理
+    proxy = os.getenv("NEWS_PROXY", "http://10.0.0.5:7890").strip()
+    if proxy:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+        try:
+            with opener.open(req, timeout=timeout) as resp:  # noqa: S310
+                return json.loads(resp.read().decode("utf-8", "replace"))
+        except Exception:  # noqa: BLE001
+            pass
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return json.loads(resp.read().decode("utf-8", "replace"))
 
 
+def _read_news_cache() -> tuple[list[str], float]:
+    """读宿主机预取的新闻缓存（NEWS_CACHE_PATH），返回 (items, 时间戳)"""
+    path = os.getenv("NEWS_CACHE_PATH", "").strip()
+    if not path:
+        return [], 0.0
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        items = [str(x).strip() for x in (data.get("items") or []) if str(x).strip()]
+        import datetime as _dt
+        ts = _dt.datetime.fromisoformat(data.get("fetched_at")) .timestamp() if data.get("fetched_at") else 0.0
+        return items, ts
+    except Exception:  # noqa: BLE001
+        return [], 0.0
+
+
 async def fetch_news(limit: int = 5) -> list[str]:
-    """每日热点新闻。主源：60秒读懂世界；失败自动降级为空列表（调用方再兜底）。"""
+    """每日热点新闻。优先用宿主机缓存，其次走代理抓 60s 接口，最后退回旧缓存。"""
+    cached, ts = _read_news_cache()
+    now = time.time()
+    if cached and (now - ts) < 48 * 3600:
+        return cached[:limit]
     try:
         data = await asyncio.to_thread(_http_json, NEWS_API)
         news = ((data or {}).get("data") or {}).get("news") or []
@@ -97,6 +128,9 @@ async def fetch_news(limit: int = 5) -> list[str]:
             return cleaned[:limit]
     except Exception as exc:  # noqa: BLE001
         LOGGER.warning("新闻接口失败：%s", exc)
+    if cached:
+        LOGGER.warning("使用旧新闻缓存（%d 条）", len(cached))
+        return cached[:limit]
     return []
 
 
