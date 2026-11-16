@@ -18,6 +18,8 @@ services:
       WEB_PASSWORD: ${WEB_PASSWORD:-}
       TZ: ${TZ:-Asia/Shanghai}
       DATA_DIR: /data
+      # 容器内没有 DISPLAY，必须无头运行；否则 Chromium 启动失败
+      HEADLESS: "true"
     volumes:
       # 配置(config.json) / Cookie(secrets/cookie.json) / 日志截图(artifacts) 都在这
       - ./data:/data
