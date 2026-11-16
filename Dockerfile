@@ -24,7 +24,11 @@ RUN pip install -r requirements.txt \
 
 # Chromium 运行所需的系统库 + 浏览器本体（~600MB，构建时一次性完成）
 # 顺带装 emoji / 中文字体：失败截图里的表情和中文不会变成方块
-RUN python -m playwright install-deps chromium \
+# 注意：Playwright 的 node 驱动依赖 libatomic.so.1，slim 镜像未自带；
+# 缺少时 install-deps 会以 exit 127 直接失败，因此必须先装 libatomic1。
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libatomic1 \
+ && python -m playwright install-deps chromium \
  && apt-get install -y --no-install-recommends fonts-noto-color-emoji fonts-noto-cjk \
  && python -m playwright install chromium \
  && rm -rf /var/lib/apt/lists/*
